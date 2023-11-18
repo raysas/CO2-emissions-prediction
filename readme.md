@@ -17,3 +17,9 @@ In this phase we used preprocessing steps to clean the data, and then used 3 dif
 - polynomial regression
 
 We applied data exploration and visualization to understand the data and the relationship between the features and the target variable. We also applied feature selection to reduce the number of features and improve the performance of the models (used backward selection in one of the MLR models). We created new columns and grouped some observations together to come up witj generalized and more useful conclusions. 
+
+----------------------------------------------------------------
+
+# <p align="center">THE PROJECT </p>
+----------------------------------------------------------------
+

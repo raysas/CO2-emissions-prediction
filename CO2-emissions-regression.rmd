@@ -1,752 +1,885 @@
 ---
-title: Data Mining Phase II- Classification
+title: 'Data Mining: Phase I'
+author: "Rayane Adam, Roudy Bou Francis"
+date: "2023-10-20"
 output:
+  html_document:
+    df_print: paged
   pdf_document: default
-  html_document: default
   word_document: default
+viewport: "width=device-width, initial-scale=1"
+generator: pandoc
 ---
 
-## Data loading and preprocessing
 
-Libraries used in this project:
-
-<img src="assets/Bioconductor.png" width="200"><img src="assets/dplyr.png" width="200"><img src="assets/tibble.png" width="200"><img src="assets/ggplot2.png" width="200">
-
-<!-- this code is silent and will be seen just for us to install the packages-->
-
-```{r installing, echo=FALSE, message=FALSE}
-if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-
-if (!requireNamespace("edgeR", quietly = TRUE)) {
-  BiocManager::install("edgeR")
-}
-
-if (!requireNamespace("GEOquery", quietly = TRUE)) {
-  BiocManager::install("GEOquery")
-}
-
-if (!requireNamespace("biomaRt", quietly = TRUE)) {
-  BiocManager::install("biomaRt")
-}
-
-if (!requireNamespace("pheatmap", quietly = TRUE)) {
-  install.packages("pheatmap")
-}
-
-if (!requireNamespace("caret", quietly = TRUE)) {
-  install.packages("caret")
-}
-
-if (!requireNamespace("leaps", quietly = TRUE)) {
-  install.packages("leaps")
-}
-```
-
-Data in this project is accessed from the [GEO database](https://www.ncbi.nlm.nih.gov/geo/). The dataset used is [GSE231409](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE231409) which contains RNA-Seq data from 455 patients testing for COVID-19. The data is downloaded from the GEO database and saved as a `.csv` file. The metadata is accessed directly from the GEO database and saved as a data frame via `GEOquery` package. The data is then normalized using the `edgeR` package. The normalized data is then cleaned and preprocessed using `dplyr` and `tibble` packages, and the gene names were accessed from the ENSEMBL accession numbers via `biomaRt` package. The data is then visualized using `ggplot2` package.
-
-**What's the data?**  
-The data is a matrix of 455 samples and 60675 genes. The samples are from patients who were tested for COVID-19. It has been experimentally collected and published in the GEO database and it representes RNA-seq raw counts data.  
-**What's gene expresion data?**  
-
-Gene expression is the process by which information from a gene is used in the synthesis of a functional gene product. These products are often proteins, but in non-protein coding genes such as transfer RNA (tRNA) or small nuclear RNA (snRNA) genes, the product is a functional RNA. 
-RNA-seq is a technique used to measure gene expression levels. It is used to compare gene expression levels between different samples.  [source: Wikipedia](https://en.wikipedia.org/wiki/Gene_expression).  
-
-**Why normalize?**  
-
-The data is normalized to account for the differences and make sure the gene expression levels are comparable between and within samples.[source: BigOmics Analytics](https://bigomics.ch/blog/why-how-normalize-rna-seq-data/)
-
-**Why the project?**  
-
-The project is to explore the data and see if there is a difference in gene expression levels between patients who tested positive for COVID-19 and those who tested negative. In the context of a data mining project, this can be used to identify genes that are differentially expressed between the two groups and can be used as biomarkers for COVID-19. In the classification seeting, we're building a model that can predict whether a patient is positive or negative for COVID-19 based on their gene expression levels.  
+::: {#loading-the-packages .section .level2}
+*For this phase, the following sub-packages of tidyverse are required:*
 
 <p align="center">
-  <img src="assets/heatmap.png" width=300 length=300>
-  [Genevia Technologies](https://geneviatechnologies.com/bioinformatics-analyses/rna-seq-data-analysis/).
+![dplyr](https://dplyr.tidyverse.org/logo.png){width=100} ![ggplot2](https://ggplot2.tidyverse.org/logo.png){width=100}
 </p>
 
-### Loading the data
-
-The csv file can be accessed and directly downloaded [here](https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE231409&format=file&file=GSE231409%5FBRAVE%5FRNASeq%5Fcounts%2Ecsv%2Egz). The metadata is accessed directly from the GEO database using the `GEOquery` package on accession number `GSE231409`. It comprises informatio related to samples subjects, ids, tissue, covid status...etc. Out of them all we're interested in taking the sample ids (GSM instead of having titles) and the covid status which is our response y (a case of binary classification, yes/no).
-
-
-```{r loading, message=FALSE}
-library(tidyverse) #data anlaysis
-library(GEOquery) #connecion to GEO data
-library(biomaRt) #connection to ensembl
-library(edgeR) #normalize seq counts
-library(pROC) #plot the roc curve
-library(caret) #for cv
-library(leaps) #for subset selection
-library(MASS)
+``` {r}
+library(tidyverse) #ggplot and dyplr are loaded with tidyverse
+```
 
 
-#loading data accessed from GEO
-gene_exp <- read.csv("GSE231409_BRAVE_RNASeq_counts.csv")
-rownames(gene_exp) <- gene_exp$target_id
-gene_exp <- gene_exp %>%
-  dplyr::select(-target_id)
+## Table of contents:
 
-#loading the metadata from GEO directly
-gse <- getGEO("GSE231409", GSEMatrix =TRUE, getGPL=FALSE)
-metadata <- pData(gse[[1]])
+***This code will perform the following steps:***
 
-get_stat <- function(df) {
-  cat("1st 5 columns:", head(colnames(df), n = 5), "\n")
-  cat("1st 5 rows:", head(rownames(df), n = 5), "\n")
+1.  *Data preprocessing*: The code will
+
+-   remove rows with missing values
+-   convert numbers char variables to numerical factors
+-   rename the variables in a meanigful way
+-   get rid of the useless columns
+-   create new ones useful for our model
+
+2.  *Data visualization and exploration:* The code will
+
+-   create box plots to visualize the distribution of CO2 Emissions
+    across different vehicle sizes, transmission, fuel types
+-   create scatter plots to visualize the relationship between CO2
+    Emissions and quantitative variables (with qualitative variables
+    group labeling to spo patterns)
+-   create a correlation matrix to visualize the relationships between
+    some of the variables in the dataset
+
+3.  Hypothesis exploration: The code will highlight the following
+    hypotheses that were either logically assumed or intuitively
+    withdrawn from the previous data exploration and visualization
+
+4.  Linear regression: The code will build linear regression model to
+    test the hypotheses including
+
+-   simple linear regression
+-   multiple linear regression
+-   interaction effect
+-   polynomial regression
+:::
+
+::: {#data .section .level2}
+## Data
+
+The Dataset used for this project has been downloaded from [Government
+of Canada's Open Data](https://open.canada.ca/en).\
+It's specifically published by the [Natural Resources of
+Canada](#attribution), [Fuel consumption section -
+2023](https://open.canada.ca/data/en/dataset/98f1a129-f628-4ce4-b24d-6f16bf24dd64/resource/b6100f60-5e63-437d-b122-db76c467c0a7).
+*To get access to the data, download the [csv file via this
+link](https://natural-resources.canada.ca/sites/nrcan/files/oee/files/csv/MY2023%20Fuel%20Consumption%20Ratings.csv)*
+
+Accordingly this dataset revolves around **Fuel Consumption** data
+collected in 2023 for over `833 instances`. Each instance have the
+following attributes:
+
+  ----------------------------------------------------------------------
+  Col Number        Name                 Description
+  ----------------- -------------------- -------------------------------
+  1                 Model                The car model's year
+
+  2                 Make                 Car type - company
+
+  3                 Model                The model's name
+
+  4                 Vehicle Class        Class of the vehicle
+
+  5                 engine_size          in Litres
+
+  6                 Transmission         Like automatic or manual...
+
+  7                 Fuel Type            The type of fuel the car uses
+
+  8                 Fuel Consumption -   Fuel consumption rate in liters
+                    City (L/100 km)      per 100 kilometers when driven
+                                         in city conditions.
+
+  9                 Fuel Consumption -   The fuel consumption rate in
+                    Hwy (L/100 km)       liters per 100 kilometers when
+                                         driven on highways.
+
+  10                comb (L/100 km)      Combined Fuel Consumption mixed
+                                         between city and highway (L/100
+                                         km)
+
+  11                Comb (MPG)           Combined Fuel Consumption in a
+                                         different unit (MPG)
+
+  12                CO2 Emissions        The amount of CO2 emissions
+                                         produced by the car
+
+  13                CO2                  rating: 1-10 from worst to best
+
+  14                Smog                 rating: 1-10 from worst to best
+  ----------------------------------------------------------------------
+
+*Again, to access the [csv file just click
+here](https://natural-resources.canada.ca/sites/nrcan/files/oee/files/csv/MY2023%20Fuel%20Consumption%20Ratings.csv).*
+Now will be loading it in a data frame, with a glimpse on the 1st 10
+rows:
+
+``` {r}
+  df <- read.csv("MY2023 Fuel Consumption Ratings.csv", header = TRUE)
+  #head(df, n = 3) #viewing the first 3 rows
+```
+:::
+
+::: {#data-preprocessing .section .level2}
+## Data Preprocessing
+
+::: {#data-cleaning-removing-na-values .section .level3}
+### Data cleaning: removing NA values
+
+This is dedicated to removing empty rows and columns from the dataset.\
+steps to follow:
+
+-   removes all the columns containing missing values (plenty of empty
+    columns)
+-   removes all the rows containing missing values ( description of the
+    dataset at the ed of the file\
+    Practically, there should be 14 columns i the dataset (as per the
+    description above) but heres how many there is. Moreover the data
+    ends at row 834, proof:
+
+``` {r}
+print(paste("number of columns:", ncol(df) ,"; number of rows:", nrow(df)))
+```
+
+Checking is there exists any missing values in the dataset, if yes
+returns TRUE.\
+*(it does return True in many columns, some columns are purely empty,
+and we need to fix this in our data frame)*
+
+``` {r}
+#head(is.na(df),n=2) # checks if our dataset contains missing values, hid cz output is too large
+#summary(df) # checks how many NA we do have
+#the output is hidden becuase it's huge
+```
+
+**Removing empty columns**
+
+``` {r}
+df <- subset(df, select = !apply(is.na(df), 2, any)) 
+print(paste("number of columns after:", ncol(df))) #removes all the columns containing missing values
+```
+
+**Removing the useless rows:**
+
+-   First 2 rows in data combine to mean the header - remove one of them
+    `(check how in the code below)`
+-   Last row is 833 - remove what follows
+    `(check how in the code below)`
+
+*(we have a proof from before that the \# of rows is far more greater
+than 833)*
+
+``` {r}
+head(df, n=2)
+```
+
+::: {pagedtable="false"}
+:::
+
+``` {r}
+print(df[832:836,])
+```
+
+checking these from data set:
+
+``` {r}
+df <- df[2:834,]
+print(paste("number of rows after:", nrow(df)))
+```
+
+**Checking the presence of duplicate rows that have the same
+information:**
+
+``` {r}
+# Check for duplicate rows
+has_duplicates <- any(duplicated(df) | duplicated(df, fromLast = TRUE))
+if (has_duplicates) {
+  print("The dataset contains at least two rows with the same information.")
+} else {
+  print("The dataset does not contain two rows with the same information. The dataset has no duplicate rows")
 }
-get_sample <- function(df){
-  submatrix <- df[1:3, 1:3]
-  print(submatrix)
-}
-
-##get_stat(gene_exp)
-get_sample(gene_exp)
 ```
 
-### Preprocessing
+:::
 
-The data requires some preprocessing before it can be used for analysis. Normalization method follows the TMM [[2]](#references) method (trimmed mean of M values). The data is normalized using the `edgeR` package. :  
+::: {#data-cleaning-columns-naming-conventions .section .level3}
+### Data cleaning: columns naming conventions
 
-- load the data in a `DGEList` object
-- filter low-expressed genes
-- normalize the expression numbers/counts using TMM
+Notice how the header of the data has unconventional names:
 
-
-```{r normalization}
-
-dge <- DGEList(counts = gene_exp)
-
-keep <- filterByExpr(dge)
-dge <- dge[keep, , keep.lib.sizes = FALSE]
-dge <- calcNormFactors(dge, method = "TMM")
-normalized_counts <- cpm(dge, normalized.lib.sizes = TRUE)
-gene_exp <- as.data.frame(normalized_counts)
-
-#get_stat(gene_exp)
-get_sample(gene_exp)
-
+``` {r}
+colnames(df)
 ```
 
+This is bad :/ We need to fix this:
 
-After having normalized the data, we wanna select the most useful genes for our analysis, since the number is still huge. This can be done by computing the variance for each gene, the genes with highest variance are most likely to be biomarkes and will be useful features for prediction. Here we chose the top 100 genes as our feature pool, before performing feature selection. This is a common step to perform right after normalization and before mapping the accession numbers to valid gene names (source: lovely people from [bioinformatics exchange](https://bioinformatics.stackexchange.com/questions/4128/select-top-100-genes-ranked-by-variance-in-read-counts))
+``` {r}
+new_names <- c("model_year", "car_make", "model_name", "vehicle_class", "engine_size", "transmission", "fuel_type", "city_consumption", "hwy_consumption", "mix_consumption", "mix_consumption_2", "CO2_emission", "CO2_rate", "smog_rate" ) 
 
-
-```{r var_genes}
-
-sel_indices <- order(apply(gene_exp, 1, var), decreasing = TRUE)[1:100]
-gene_exp <- gene_exp[sel_indices, , drop = FALSE]
+colnames(df) <- new_names
+colnames(df)
 ```
 
+:::
 
+::: {#data-cleaning-data-type-conversion .section .level3}
+### Data cleaning: data type conversion
 
+Make sure the numbers are converted to the right data type:
 
-Now notice that the gene names are encoded by ENSEMBL accession numbers, we will connect to the database via biomaRt and change them to gene names.  
-Steps to follow: 
-- get the list of ensembl ids (trimmed the numbers after . since these refer to transcript variants and do all ebling to the same ensembl id, in order to access it properly from the databse had to make it represent a non . number)
-- connect to the database
-- retrieve the gene names for the ensembl ids
-- replace the ensembl ids by gene names in the data frame
+-   numerical values/ measures --\> double
+-   rank values --\> factor
 
-**p.s.** when retrieving the gene names, some of the ENSEMBL ids do not link to a gene name, so we remove those rows from the data frame. These can be associated to any of the following:  
-
-- Unannotated Genes
-- Novel Genes
-- Pseudogenes
-- Non-Coding RNAs
-- Temporary IDs
-
-In all cases, they won't be useful for our analysis to make inferences so we remove them
-
-
-```{r accessing_gene_names_ensembl}
-#Fixing row names: changing the ensemble accession IDs into meaningful gene names
-rownames(gene_exp) <- sub("\\..*", "", rownames(gene_exp)) #removing the .* from the ensemble ids since that dows not affect the gene names
-#dont worry about duplicates they will be handled ;)
-
-ensembl_ids <- rownames(gene_exp)
-gene_exp <- gene_exp %>% 
-  rownames_to_column(var = "ens_accession") %>%
-  rename(ensembl_gene_id = ens_accession) #we're in the process of changing the rownames
-
-ensembl <- useEnsembl(biomart = "genes") #choosing the database genes 
-connect <- useMart("ensembl", dataset = "hsapiens_gene_ensembl") #building a connection with ensembl to the database for human genes
-
-
-#att <- listAttributes(connect) #listing the attributes to see which map for ids and names, just exploring around :p
-#filters <- listFilters(connect) #listing the filters to see which map for ids and names
-#retrieves with filter for the ensemble ids and returns the gene names only for the values that we provide - in this case the ensembl_ids
-
-gene_names <- getBM(attributes = c("ensembl_gene_id","external_gene_name"), 
-                    filters ="ensembl_gene_id", 
-                    values = ensembl_ids, 
-                    mart = connect)
-gene_names$ensembl_gene_id <- as.character(gene_names$ensembl_gene_id)
-gene_names$external_gene_name <- as.character(gene_names$external_gene_name)
-
-
-#wanna get the list of ensembl ids that are not in gene_names
-ensembl_ids_not_in_gene_names <- setdiff(ensembl_ids, gene_names$ensembl_gene_id)
-
-
-#join tables and remove the ids that do not map to gene names
-gene_exp <- merge(gene_exp, gene_names, by = "ensembl_gene_id", all.x = TRUE)
-gene_exp <- gene_exp %>% 
-  filter(!is.na(gene_exp$external_gene_name))
-
-
-#adding a prefix to duplicate external_gene_name
-gene_exp <- gene_exp %>%
-  mutate(external_gene_name = ifelse(duplicated(external_gene_name), 
-                                     paste(external_gene_name, row_number(), sep = "_"), 
-                                     external_gene_name))
-
-
-rownames(gene_exp) <- gene_exp$external_gene_name
-gene_exp <- gene_exp[,-1] %>%
-  dplyr::select(-external_gene_name)
-
-#get_stat(gene_exp)
-get_sample(gene_exp)
-
+``` {r}
+glimpse(df) #checks what type of data each feature is 
 ```
 
+    
 
+``` {r}
+df <- transform(df, 
+                      engine_size=as.numeric(engine_size),
+                      city_consumption=as.numeric(city_consumption),
+                      hwy_consumption=as.numeric(hwy_consumption),
+                      mix_consumption=as.numeric(mix_consumption),
+                      mix_consumption_2=as.numeric(mix_consumption_2),
+                      CO2_emission=as.numeric(CO2_emission),
+                      CO2_rate=as.factor(CO2_rate),
+                      smog_rate=as.factor(smog_rate)
+                    )
+glimpse(df) #checks the data type after conversion
+```
+:::
 
-The data so far has samples as columns and genes as rows. Performing a supervised learning approach, we intend to predict the covid status of a patient based on their gene expression levels. Therefore, we need to transpose the data so that the samples are rows and genes are columns, since genes are the features. The response variable is the covid status of the patient. The data is then joined with the metadata to add the covid status to the data frame. The covid status is then converted to a factor variable with levels `Yes` and `No`, and we removed the ones that we don't know their status (NA).
+::: {#data-cleaning-columns-editing .section .level3}
+### Data cleaning: Columns editing
 
+*Dropping 2 and Mutating 2 :)*
 
-```{r transpose}
-gene_exp <- t(gene_exp) %>%
-  as.data.frame()
+1.  The `model year` is 2023 for all instances, thus we will drop it.
 
-#get_stat(gene_exp)
-get_sample(gene_exp)
+``` {r}
+unique(df$model_year)
 ```
 
-
-```{r add_labels}
-
-#get the labels of the metadata in a separate column: data frame contains title, accession number and covid result
-response <- metadata %>%
-  dplyr::select(1,16) %>%
-  rename(covid = characteristics_ch1.6) %>%
-  mutate(covid = gsub("covid: ", "" ,covid))
-
-gene_exp <- gene_exp %>%
-  rownames_to_column(var = "title") %>% #convert the row names into a column
-  left_join(., response, by = "title")  
-rownames(gene_exp) <- gene_exp$title
-gene_exp <- gene_exp[,-1]
-
-gene_exp <- gene_exp[!is.na(gene_exp$covid), ] #to remove unlabeled samples, NA as response
-
+``` {r}
+df <- subset(df, select = - model_year)
 ```
 
+**p.s.** `mix_consumption` is measured i L/100 km, `mix_consumption_2` i
+MPG; converting between them is via the following formula: we will only
+use one of them as predictor - drop the second one.
 
-```{r factor_response}
-gene_exp$covid <- factor(gene_exp$covid, labels=c("No","Yes"))
-#colnames(gene_exp)[18383]
+$$
+mpg = \frac{235.215}{L/100 km}
+$$
+
+``` {r}
+df <- subset(df, select = - mix_consumption_2)
 ```
 
+2.  `Transmission` and `Vehicle_class` have too may values that can
+    easily get grouped in new cols:
 
+-   Transmission is either Automatic or Manual (if starts with A
+    automatic, M manual)\
+-   Vehicle class gives rise to vehicle_size_category based on its size:
+    small, medium, large or special (*this includes special purpose cars
+    and 2 seaters*)
 
-**Declaring some functions that will be reused throughout the code for:** 
-
-- get a table of measures: `print_confusion_and_measures(model, test_data)`
-- plot the roc curves for 2 models: `plot_roc_curves(model1, model2, test_data)`
-- split the data for validation set approach: `split_data(data, proportion)`
-
-```{r useful_functions}
-
-measures = function(m){
-  spe <- (m[2,2] / (m[1,2]+m[2,2]))
-  sen <- (m[1,1] / (m[1,1]+m[2,1]))
-  a <- (sum(diag(m)) / sum(m))
-  
-  cat("Specificity: ", spe, "\n")
-  cat("Sensitivity: ", sen, "\n")
-  cat("Accuracy: ", a, "\n")
-  
-  return (c(se=sen, sp=spe, acc=a))
-}#helper method to use in the next ne
-
-print_confusion_and_measures <- function(model, test_data) {
-  #only prints does not return !!
-  pred <- predict(model, newdata = test_data)
-  confusion <- table(pred$class, test_data$Outcome)
-  print(confusion)
-  measures(confusion)
-}
-
-plot_roc_curves <- function(model1, model2, test_data) {
-  #this function is intended to compare different models (qda, lda) models curve on the same plot: 
-  #run it like this plot_roc_curves(model1, model2, model3, testing)
-  
-  model1_name <- deparse(substitute(model1))
-  model2_name <- deparse(substitute(model2))
-  
-  pred1 <- predict(model1, newdata = test_data)
-  pred2 <- predict(model2, newdata = test_data)
-  
-  roc1 <- roc(response = test_data$covid, predictor = pred1$posterior[,2])
-  roc2 <- roc(response = test_data$covid, predictor = pred2$posterior[,2])
-  
-  auc1 <- auc(roc1)
-  auc2 <- auc(roc2)
-  
-  print(paste(model1_name, "AUC:", auc1))
-  print(paste(model2_name, "AUC:", auc2))
-  
-  ggroc(list(Model1 = roc1, Model2 = roc2))
-}
-
-
-
-split_data <- function(df, p=0.7) {
-  #this function takes a data frame and proportion of split and splits it to training and testing - if proportion not provided ir'll assume it is 0.7
-  df <- df %>%
-    mutate(id=row_number())
-
-  tr <- df %>%
-    slice_sample(prop=p)
-  te <- anti_join(df, tr, by='id')
-
-  tr <- tr %>% dplyr::select(-id)
-  te <- te %>% dplyr::select(-id)
-  
-  return (list(train = tr, test = te))
-}
-
+``` {r}
+unique(df$vehicle_class)
 ```
 
-
-#### Forward Selection
-
-```{r forward_selection}
-
-
-forward_selection <- regsubsets(covid ~ ., data= gene_exp, nvmax = ncol(gene_exp) - 1, method = "forward")
-
-cp_summary <- summary(forward_selection)$cp
-min_cp_index <- which.min(cp_summary)
-min_cp_value <- cp_summary[min_cp_index]
-plot(cp_summary, type='l')
-points(min_cp_index, min_cp_value, col='red', pch=19)
-cat("Number of features at the lowest Cp:", min_cp_index - 1, "\n")
-
-adjr2_summary <- summary(forward_selection)$adjr2
-max_adjr2_index <- which.max(adjr2_summary)
-max_adjr2_value <- adjr2_summary[max_adjr2_index]
-plot(adjr2_summary, type='l', main='Adjusted R-squared')
-points(max_adjr2_index, max_adjr2_value, col='red', pch=19)
-cat("Number of features at the highest Adjusted R-squared:", max_adjr2_index - 1, "\n")
-
-
-bic_summary <- summary(forward_selection)$bic
-min_bic_index <- which.min(bic_summary)
-min_bic_value <- bic_summary[min_bic_index]
-plot(bic_summary, type='l', main='BIC')
-points(min_bic_index, min_bic_value, col='blue', pch=19)
-cat("Number of features at the lowest BIC:", min_bic_index, "\n")
-
+``` {r}
+unique(df$transmission)
 ```
 
-Through rigorous statistical analysis using forward selection, we employed multiple criteria, including BIC, Adjusted R2, and Cp, to determine the optimal number of features.
+``` {r}
+df <- mutate(df, vehicle_size_category = case_when(
+  vehicle_class == "Full-size" ~ "Large",
+  vehicle_class == "SUV: Standard" ~ "Medium",
+  vehicle_class == "Mid-size" ~ "Medium",
+  vehicle_class == "Minicompact"~ "Small",
+  vehicle_class == "SUV: Small"~"Small",
+  vehicle_class == "Compact"~"Small",
+  vehicle_class == "Two-seater"~"Special",
+  vehicle_class == "Subcompact"~"Small",
+  vehicle_class == "Station wagon: Small"~"Small",
+  vehicle_class == "Station wagon: Mid-size"~"Medium",
+  vehicle_class == "Pickup truck: Small"~"Small",
+  vehicle_class == "Pickup truck: Standard"~"Medium",
+  vehicle_class == "Special purpose vehicle"~"Special",
+  vehicle_class == "Minivan"~"Small"
+))
 
-The number of features at the lowest cp is 28.
-The number of features at the highest adjusted R2 is 51.
-The number of features at the lowest BIC is 6 (colored in blue in purpose).
 
-For *interpretability* we chose BIC which has the lowest value for 6 features vs 28 and 51 for Cp and ajusted R2. These are the genes:
+df <- mutate(df, transmission_type_category = case_when(
+  grepl("^A", df$transmission) ~ "Automatic",
+  grepl("^M", df$transmission) ~ "Manual",
+))
 
-
-```{r seven_genes}
-coef(forward_selection, 6)
-
+colnames(df)
 ```
 
-*After performing forward selection on our data, and after selecting the top features, we should now perform the validation set approach as a resampling method.*
+3.  Lastly, `CO2 rate` and `Smog rate` are concluded based on the CO2
+    emitted, thus for this regression task of response `yCO2_emissions`,
+    we must drop these values from the tale useless
 
-#### Validation Set approach
-
-```{r val_set_approach}
-
-set.seed(42)
-my_split <- split_data(gene_exp, 0.8)
-train_set <- my_split$train
-test_set <- my_split$test
-#View(train_set)
-#View(test_set)
+``` {r}
+df <- subset(df, select = - CO2_rate)
+df <- subset(df, select = - smog_rate)
 ```
 
-*Now our data is split into 80% training data and the rest 20% testing data. The next step is to go and perform logistic regression. Let's GO!!*
+Final data frame has the following:
 
-##### simple logistic regression
-
-In this task we will try predicting the label (covid or no covid) from just the moset influential gene - which we conclude it from feature selection, the best model with 1 predictor. It's the one that has the lowest BIC on its own as a predictor. This gene is the following: `IFI27`
-
-```{r one_gene}
-
-coef(forward_selection, 1)
-
-logistic_model <- glm(covid ~ IFI27, data = train_set, family = "binomial")
-#Perform the logistic model on the 6 features that we chose using forward selection
-summary(logistic_model)
-
-pred <- predict(logistic_model, newdata = test_set)
-threshold <- 0.5  #probability
-predicted_labels <- ifelse(pred > threshold, 1, 0)
-confusion_matrix <- table(predicted_labels, test_set$covid)
-print(confusion_matrix)
-
-
-measures(confusion_matrix)
-
+``` {r}
+colnames(df)
 ```
 
-Using this model, this one gene: IFI27, was significant ad able to predict whether the sample has covid or not base on its expresion levels, in a logistic regression model.It managed to do that with a ensitivity of 0.47 (very low) and specificity of 0.8 and accuray of 0.714. Let's compare it with the multiple one to see which is more favourable.
+### Data exploration: outliers
 
-##### logistic reression: multiple
+**Extreme outlier cars are the ones that pollute the most (or very low emissions - which is not the case here as you ca see now). They are often older, bigger, and more powerful than most cars. In this project we're interested in studying what makes a car have that irregular level of CO2 emitted. This is why, we need to detect them to later on reflect on their properties.**   
 
-```{r logistic_regression_forward_val}
-
-logistic_model <- glm(covid ~ RPS2+IFI27+EEF2+`MT-CO2` + `MT-CO3` + IGHM, data = train_set, family = "binomial")
-#Perform the logistic model on the 6 features that we chose using forward selection
-summary(logistic_model)
-
-pred <- predict(logistic_model, newdata = test_set)
-threshold <- 0.5  #probability
-predicted_labels <- ifelse(pred > threshold, 1, 0)
-confusion_matrix <- table(predicted_labels, test_set$covid)
-print(confusion_matrix)
-
-
-measures(confusion_matrix)
-
-```
-
-**INTERPRETATION**
-
-*Interpretation of the Coefficients:* 
-
-For a one-unit increase in RPS2, the log-odds of the 'covid' outcome increase by 0.0014488, holding other predictors constant (same concept in the interpretation of the other genes).
-The deviance measures the goodness of fit of the model. A smaller residual deviance (273.28) compared to the null deviance (401.80) suggests that the model explains some variability in the response variable.
-The selected genes RPS2, IFI27, EEF2, MT-CO2, MT-CO3, and IGHM all seem to be statistically significant in predicting the 'covid' outcome, as their associated p-values are below 0.05.
-
-*Interpretation of the Confusion Matrix of the Logistic Regression (along with the Se and Sp) :*
-
-Specificity (True Negative Rate): 0.852459 or approximately 85.25%. It indicates that the model correctly identifies 85.25% of the actual negatives ('No' class for covid).
-Sensitivity (True Positive Rate): 0.8695652 or approximately 86.96%. It means the model correctly identifies 86.96% of the actual positives ('Yes' class for covid).
-Accuracy: 0.8571429 or approximately 85.71%. Overall, the model is accurate in predicting both classes, achieving an accuracy of around 85.71%. Hence, we can deduce that this model is a good one. 
-
-These numbers are far grater than the simple logistic regression, making this a better model.
-
-*However, more conclusions can be drawn when we compare this model with other models.*
-
-*This is why we should delve into the beauty of LDA and QDA*
-
-##### LDA
-
-```{r lda_forward_val}
-
-lda_model <- lda(covid ~ RPS2+IFI27+EEF2+`MT-CO2` + `MT-CO3` + IGHM, data = train_set)
-#summary(lda_model)
-
-pred <- predict(lda_model, newdata = test_set)
-confusion <- table(pred$class, test_set$covid)
-confusion
-measures(confusion)
-
-```
-*Interpretation of the Confusion Matrix of LDA (along with the Se and Sp) :*
-
-Specificity (True Negative Rate): 0.9180328 or approximately 91.80%. It indicates that the model correctly identifies 91.80% of the actual negatives ('No' class for covid).
-Sensitivity (True Positive Rate): 0.6521739  or approximately 65.21%. It means the model correctly identifies 65.21% of the actual positives ('Yes' class for covid).
-Accuracy: 0.8452381  or approximately 84.52%. Overall, the model is accurate in predicting both classes, achieving an accuracy of around 84.52%. However, when we compare this model to the logistic regression one, we can find that the logistic regression has achieved more accuracy than the LDA (85.71% > 84.52%).
-
-*Now, let's perform QDA and then compare it with LDA, and then compare it back with logistic regression*
-
-##### QDA
-
-```{r qda_model_forward_val}
-
-qda_model <- qda(covid ~ RPS2+IFI27+EEF2+`MT-CO2` + `MT-CO3` + IGHM, data = train_set)
-#summary(lda_model)
-
-pred <- predict(qda_model, newdata = test_set)
-confusion <- table(pred$class, test_set$covid)
-confusion
-measures(confusion)
-
-```
-*Interpretation of the Confusion Matrix of QDA (along with the Se and Sp) :*
-
-Specificity (True Negative Rate): 0.7213115 or approximately 72.13%. It indicates that the model correctly identifies 72.13% of the actual negatives ('No' class for covid).
-Sensitivity (True Positive Rate): 1 or approximately 100%. It means the model correctly identifies 100% of the actual positives ('Yes' class for covid).
-Accuracy: 0.7976190   or approximately 79.76%. Overall, the model is accurate in predicting both classes, achieving an accuracy of around 79.76%. 
-
-If we want to compare the performance of QDA vs the performance of LDA, we can see that QDA generated better results (LDA accuracy = 84.52% > QDA accuracy = 79.76%).
-However, when we compare the QDA model to the logistic regression one, we can find that the logistic regression has achieved more accuracy than the QDA (85.71% > 79.76%).
-
-Now, let's visualize the ROC curves.
-
-```{r lda_qda_roc_}
-plot_roc_curves(lda_model, qda_model, test_set)
-```
-*P.S. Model 1 is LDA, Model 2 is QDA.*
-
-As we can visualize from the ROC curves, and from the area under the curves that were also computed, we can easily see that QDA_AUC = 0.93727726300784 >~ LDA_AUC = 0.933713471133286 which means that QDA performs roughly better based on the ROC curves. Because as a recall, AUC measures the overall performance of the model i.e. higher AUC (closer to 1) indicates better discrimination ability—how well the model distinguishes between classes. However the values are very close, and we can see that Sensitivity of LDA is low when its specificity is high and vice versa for QDA, so we go for accuracy to be able to compare between LDA and QDA ~ Conclusions made before.
-
-*LDA performed better than QDA, why? ~Nice Question.*
-
-Because, as a second recall, LDA assumes that the observations from each class are drawn from a gaussian distribution (normal) and that the covariances of the classes are equal. HOWEVER, QDA assumes that the observations from each class are drawn from a gaussian distribution (normal) but assumes also that each class has its own covariance matrix (unlike LDA). Hence, the most probable reason of why LDA performed better than LDA lies in our data itself. Most probably, the classes have common covariances. 
-
-*Small Conclusion: Logistic Regression performed better than QDA and LDA.*
-
-*NoW, let's perform everything we did so far but using another resampling technique (5-fold). P.S. We are still under the forward selection approach*
-
-#### 5-Fold Cross Validation
-##### logistic regression
+*Two extreme outliers are showing*
 
 ```{r}
-train_control <- trainControl(method = "cv", number = 5)
-#View(train_control)
-logistic_cv <- train(covid ~RPS2+IFI27+EEF2+`MT-CO2`+`MT-CO3`+IGHG1, data = gene_exp, method = "glm", family=binomial, trControl = train_control, metric="Accuracy")
-logistic_cv
+outliers <- vector()
+q1 <- quantile(df$CO2_emission, 0.25)
+q3 <- quantile(df$CO2_emission, 0.75)
+
+for (i in 1:nrow(df)) {
+  lower_bound <- q1 - 3 * IQR(df$CO2_emission) #extreme outliers because why not :p
+  upper_bound <- q3 + 3 * IQR(df$CO2_emission)
+
+  if (df$CO2_emission[i] < lower_bound | df$CO2_emission[i] > upper_bound) {
+    outliers <- append(outliers, i) #app if its lower or upper than the limits
+    print(df[i,])
+  }
+}
+
+
 ```
 
-*After splitting our data using 5-fold Cv, we performed logistic regression. Let's GO and analyze the results!!*
+_Notice how the two outliers found have a CO2 emission of >600 g/km. They are both Bugattis, large cars with large engines, and use premium fuel... These make sense to any car expert: they are indeed pollutants. However, we're data scientists! We find the pattern with numbers! At the end of this project, the models will actually explain how we can get to such conclusions. Every feature that contributed to this high emission will be broken down into pieces and analyzed._
 
-*INTERPRETATION*
-417 samples: The dataset consists of 417 observations.
-6 predictors: There are 6 predictor variables used in the logistic regression model.
-2 classes: 'No', 'Yes': The classification task involves predicting between two classes, labeled 'No' and 'Yes'
-The average accuracy of the logistic regression model across the 5 folds of cross-validation is 77.92%. It represents the proportion of correctly classified instances out of the total. This is more or less a good accuracy but we should compare it with other models.
+## Data Visualization:
 
-*So, this is why we should go and compute LDA to be able to compare the models together.*
+Before coming up with hypotheses to test on the data, we need to look
+for patterns and relationships. This can be done via plotting (mainly
+scatterplots for nums, boxplots for categorical and correlation
+matrices)
 
-##### LDA
+::: {#vehicle-class-co2 .section .level3}
+### **Vehicle class & CO2**
+
+``` {r}
+ggplot(data=df) +
+  geom_boxplot(mapping = aes(x=vehicle_size_category, y=CO2_emission, fill=vehicle_size_category))+
+  theme(axis.text.x = element_blank())
+```
+
+*Notice how some vehicle types like `2 seater` which is a special car
+have exceptionally a high production of CO2 whereas a `small minivan`
+which is small relatively has ecological levels of emissions.* *A
+pattern is present where it is shown that cars that are considered as
+special have relatively higher CO2 Emissions than other types of cars.*
+
+**P.S. Notice that a special car has a suspicious level of CO2 emissions
+greater than 600 \~maybe outlier or \~maybe not. (Later On)**
+:::
+
+::: {#transmission-and-co2-levels .section .level3}
+### **Transmission and CO2 levels:**
+
+``` {r}
+ggplot(data=df) +
+  geom_boxplot(mapping = aes(x=transmission_type_category, y=CO2_emission, fill=transmission_type_category))+
+  theme(axis.text.x = element_blank())
+```
+
+*There is no general trend whatsoever between the transmission type and
+the CO2 emitted by the car.*
+
+**P.S. Notice that an automatic car has a suspicious level of CO2
+emissions greater than 600 \~maybe outlier or \~maybe not. (Later On)**
+:::
+
+::: {#density-curve-of-co2-emission-based-on-the-general-transmission-type .section .level3}
+### **Density Curve of CO2 Emission Based on the General Transmission Type**
+
+``` {r}
+ggplot(data =df) + geom_density(mapping = aes(x = CO2_emission, fill =transmission_type_category, alpha = 0.25))
+```
+
+*Additional data exploration gives an extra evidence that the CO2
+emissions are not affected by the general transmission type of the car.*
+*We should look at the individual transmission types*
+
+``` {r}
+ggplot(data=df) +
+  geom_boxplot(mapping = aes(x=transmission, y=CO2_emission, fill=transmission))+
+  theme(axis.text.x = element_blank())
+```
+
+*Individual transmission do have a clearer relationship with the amount
+of CO2 emitted.*
+
+*i.e. a specific transmission type can affect the repsonse*
+
+**P.S. Notice that a AM7 car has a suspicious level of CO2 emissions
+greater than 600 \~maybe outlier or \~maybe not. (Later On)**
+:::
+
+::: {#fuel-type-co2 .section .level3}
+### **Fuel type & CO2**
+
+``` {r}
+ggplot(data=df) +
+  geom_boxplot(mapping = aes(x=fuel_type, y=CO2_emission, fill=fuel_type))
+```
+
+*Some fuel types are more notorious than others, we will see how we can
+incorporate this result later on*
+
+p.s. (source:
+[here](https://www.ndsys.com/Web_Help/Invision/motorVehicle/Field_Descriptions/Field_Description_-_Fuel_Type_Code.htm))
+
+-   X - regular gasoline
+-   Z - premium gasoline
+-   D - diesel
+-   E - ethanol (E85)
+
+**P.S. Notice that a car that uses premium gasoline has a suspicious
+level of CO2 emissions greater than 600 \~maybe outlier or \~maybe not.
+(Later On)**
+:::
+
+::: {#density-curve-of-co2-emission-based-on-the-fuel-type .section .level3}
+### **Density Curve of CO2 Emission Based on the Fuel Type**
+
+``` {r}
+ggplot(data =df) + geom_density(mapping = aes(x = CO2_emission, fill =fuel_type, alpha = 0.25))
+```
+
+**Check the interpretation [here](#fuel-consumption-fuel-type-and-co2)**
+:::
+
+::: {#engine-size-and-co2-emissions .section .level3}
+### **Engine Size and CO2 Emissions**
+
+``` {r}
+ggplot(data=df) +
+  geom_point(mapping= aes(x=engine_size, y=CO2_emission, fill=engine_size))
+```
+
+*A pattern can be perceived:*
+
+*-   Generally, a larger engine size will result in a higher emission of
+    CO2.*
+
+*This pattern is perceived if the visualizations were just made on these
+2 variables. Fortunately, we can visualize the pattern using additional
+variables.*
+:::
+
+::: {#engine-size-and-fuel-types .section .level3}
+### **Engine Size and Fuel Types**
+
+``` {r}
+ggplot(data=df) +
+  geom_point(mapping= aes(x=engine_size, y=CO2_emission, color=fuel_type))
+```
+
+
+*A pattern can be perceived ( a general one to be tested ):*
+
+-   The larger the engine the more likely it is using premium gasoline
+    Z.  -   purple - & the higher the CO2 emitted
+-   The smaller the engine the more likely it is using regular gasoline
+    X.  -   blue - & the lower the CO2 emitted
+
+**P.S. Notice that a car with engine size = 8 (largest) and that uses
+premiuim gasoline has a suspicious level of CO2 emissions greater than
+600 \~maybe outlier or \~maybe not. (Later On)**
+:::
+
+::: {#engine-size-and-transmission-types .section .level3}
+### **Engine size and Transmission types**
+
+``` {r}
+ggplot(data=df) +
+  geom_point(mapping= aes(x=engine_size, y=CO2_emission, color=transmission_type_category))
+```
+
+*There is no apparent relationship between engine_size and transmission
+type specifically when it comes to CO2 emissions; It only seems that
+automatic is more widely used in comparison to manual. However, mainly
+looking at engine_size, the larger the engine_size, the larger the
+emission of CO2*
+
+**By now, you can see the suspicious value wihtout our p.s.**
+
+::: {#engine-size-and-vehicle-size .section .level4}
+#### **Engine Size and Vehicle Size**
+
+``` {r}
+ggplot(data=df) +
+  geom_point(mapping= aes(x=engine_size, y=CO2_emission, color=vehicle_size_category))
+```
+
+*Generally, smaller cars have smaller engines, resulting in a lower
+emission of CO2. The pattern is interesting to study.*
+
+**"Well, isn't it just remarkable how you've uncovered the 'suspicious'
+value all on your own, right?**
+:::
+:::
+
+::: {#fuel-consumption-fuel-type-and-co2 .section .level3}
+### **Fuel consumption, fuel type and CO2**
+
+This general pattern persists when looking at the fuel consumption in a
+specific road (city, highway or both) as seen in the cor matrix. Here
+we're vizualizing consumption in a mixed road - having it the most
+tightly correlated with CO2 levels. (see matrix next)
+
+``` {r}
+ggplot(data=df) +
+  geom_point(mapping = aes(x=mix_consumption, y=CO2_emission, color=fuel_type)) +
+  facet_wrap(~ fuel_type, nrow=2)
+```
+
+*In general type D and X and E show a lower consumption (Z reaches very
+high values) when driving in combination of highway and city, resulting
+in lower emissions*
+*As per the density curve shown [here](#density-curve-of-co2-emission-based-on-the-fuel-type)
+if we compare the distribution of the D fuel type with the density curve, we can notice that the diesel has relatively a predictable and low CO2 emissions. In other words, we can notice on the density curve, that the red curve represents that the diesel fuel type has relatively a small standard deviation (and this is shown in the correlation matrix).
+In addition, we can notice that the premium fuel type is the one that has the largest emissions of CO2 (shown in the density curve and in the correlation matrix)*
+:::
+
+::: {#correlation-matrix .section .level3}
+### **Correlation matrix**
+
+``` {r}
+pairs(~engine_size+city_consumption+hwy_consumption+mix_consumption+CO2_emission, df, col = "#009ACD")
+
+corr_matrix <- cor(df[, c("engine_size","city_consumption", "hwy_consumption", "mix_consumption", "CO2_emission")])
+pal <- colorRampPalette(c("#b3cde0", "#6497b1" ,"#011f4b"))(100)
+heatmap(cor(corr_matrix), col=pal)
+
+
+```
+
+*Notice how the patterns are very strongly correlated when it comes
+between fuel consumption in city, highway, mix and the CO2 emission.
+There exist a mild correlation between engine_size and the rest - both
+the `correlation between all types of fuel consumption` and the
+`not-very-linear relationship between engine_size and CO2 emission` shall
+be studied later*
+
+
+## Hypotheses:
+
+From what we have seen in the visualizations above, boxplots, scatter
+plots and correlation matrices we can ask the following questions:
+
+*Simple Linear Regression:*
+
+-   **Is there a significant relationship between engine_size and CO2
+    emission?**\
+    As per the relationship perceived
+    [here](#engine-size-and-co2-emissions), the larger the engine, the
+    higher the emission.
+
+$H_0$: There is no linear relationship between
+engine size and CO2 emission of the car
+
+-   **Is there a significant relationship between the vehicle type and
+    CO2 emission?** An interesting question that we would like to test
+    is whether each vehicle class has a specific CO2 level emitted to
+    check which are the most ecological and which are the most
+    deleterious on the env.
+
+$H_0$: There is no linear relationship between
+vehicle class and CO2 emission of the car
+
+*Multiple Linear Regression:*
+
+-   **Is there a useful linear relationship between CO2 emissions and
+    any of the predictors?** Application of backward elimination
+
+$H_0$: There is no linear relationship between
+all predictors and CO2 emission of the car
+
+*+ Interaction effect:*
+
+-   **Is there an interaction between engine size and fuel type? or does the effect of engine size depend on fuel type**\
+    Notice there is a [pattern here](#engine-size-and-fuel-types) when
+    looking at the different CO2 emissions for different instances of
+    engine_sizes with their corresponding fuel type
+
+-   **Is there an interaction between fuel type and fuel consumption?**\
+    Notice how, when filtered by fuel types
+    [here](#fuel-consumption,-fuel-type-and-CO2), Some fuel types show
+    substantially lower consumption than others, which might in turn
+    affect emissions since they are highly correlated.
+
+-   **Is there an interaction between fuel type and fuel consumption, & engine size and fuel type?**
+    Checking if the inter actors behave simultaneously and affect the response.
+
+*Polynomial Regression:*
+
+-   **Does a linear model of engine size and a larger polynomial model
+    (of degree 3) fit the data equally well?**
+
+In [this correlation matrix](#correlation-matrix), `engine_size` seem
+like the only feature not to have a strongly positive correlation with
+the CO2 emissions, it seems like a case worth studying on a higher
+degree polynomial!!
+:::
+
+::: {#regression-models .section .level2}
+## Regression Models:
+
+::: {#linear-regression .section .level3}
+### Linear Regression:
+
+::: {#is-there-a-significant-relationship-between-engine_size-and-co2-emission .section .level4}
+#### **Is there a significant relationship between engine_size and CO2 emission?**
+
+``` {r}
+slr_engine_model <- lm(CO2_emission ~ engine_size, data=df)
+summary(slr_engine_model)
+```
+
+``` {r}
+plot(df$engine_size, df$CO2_emission, xlab = "engine_size", ylab= "CO2 emitted", col= "#6aaa96", pch=20)
+abline(slr_engine_model, col="#de425b", lwd=3, lty=1)
+```
+
+
+**Interpretation:**
+
+-   P_value \< 0.05, thus we reject $H_0$ which means that there is a linear
+    relationship between engine size and CO2 emissions.\
+-   The positive coefficient estimates for different engine_sizes
+    indicate the expected increase in CO2 emissions for each level of
+    engine_size compared to the reference level (Intercept).\
+-   The model appears to explain a significant portion of the variation
+    in CO2 emissions, as indicated by the high R-squared value `0.636`.\
+-   The residuals are relatively small (`38.8`) and the coefficients
+    have a low standard error, which is a sign of a good fit.
+:::
+
+::: {#is-there-a-significant-relationship-between-the-vehicle-type-and-co2-emission .section .level4}
+#### **Is there a significant relationship between the vehicle type and CO2 emission?**
+
+``` {r}
+slr_vehicle_model <- lm(CO2_emission ~ vehicle_class, data=df)
+summary(slr_vehicle_model)
+```
+
+   
+``` {r}
+#plot(df$vehicle_class, df$CO2_emission, xlab = "vehicle type", ylab= "CO2 emitted", col= "#6aaa96", pch=20)
+#abline(slr_vehicle_model, col="#de425b", lwd=3, lty=1)
+```
+
+**Interpretation:**
+
+-   P_value \< 0.05, thus we reject $H_0$ which means that there is a linear
+    relationship between vehicle class and CO2 emissions.\
+-   The coefficient estimates for each level of vehicle class represent 
+    the expected change in CO2 emissions for vehicles in those categories compared
+    to the reference level(intercept). If the coefficient estimate is positive, this indicates
+    the expected increase in CO2 emissions. If the coefficient estimate, this indicates the 
+    expected decrease in CO2 emissions.
+- 	Some levels of vehicle class have coefficients with low p-values, 
+    indicating statistical significance. These levels have a significant effect on 
+    CO2 emissions. For example, '\*' and '\*\*\*' significance codes suggest 
+    highly significant effects (*** > * in significance)
+-   In our model, R squared is  around 0.3073. This means that roughly 30.73% of 
+    the variance in CO2 emissions is explained by the vehicle class. This could be an indication
+    of a poor model
+-   The residual standard error (RSE) is 53.91, which does represent generally a low RSE.        This RSE along with R squared indicates that the model is poor.
+**The interpretation of the metrics indicate that the model of simple linear regression of the CO2 emissions onto the vehice class is a poor fit.**
+
+:::
+:::
+
+::: {#multiple-regression-backward-selection .section .level3}
+### Multiple Regression: Backward Selection
+
+``` {r}
+full_model <- lm(CO2_emission ~ ., data = df)
+final <- step(full_model, direction = "backward")
+```
+   
+``` {r}
+summary(final)
+```
+
+The main predictors that persisted the elimination:
+
+-   fuel type: (3 dummy var expressing 4 different types)
+
+    -   any fuel - there is a contribution in \~ 35g/km CO2 emitted (if
+        diesel aloe it will e strictly this value)
+    -   else if fuel is ethanol (E85), there will e \~ 157 decrease in
+        the qty emitted than diesel
+    -   else if fuel is regular gas (X) \~ 34 decrease
+    -   else premium (Z) \~ 35 decrease
+
+    DIESEL IS THE MOST POLLUTANT
+
+-   city_consumption: 1u up will results in 9.4 g/km of CO2
+
+-   hwy_consumption: 1u up will results in 7.5 g/km of CO2
+
+-   mix_consumption: 1u up will results in 6.3 g/km of CO2
+
+**Interpretation:**
+-   The R-squared value is 0.999, indicating that approximately 99.9% of the variance in CO2     emissions is explained by the predictors in the model.
+-   The F-statistic has an extremely low p-value (< 2.2e-16), which indicates that the model     is highly significant, thus indicating that at least one of the predictors or                interactions is influential in explaining CO2 emissions.
+-   All the coefficients have low significant p-values. This is an indication of a great         model.
+-   The residual standard error (RSE) is 2.045, which represents generally a low RSE. This       RSE indicates a very good and significant fit.
+To sum up, the model generated by backward selection is a very good and significant model.
+
+:::
+
+::: {#interaction-effect .section .level3}
+### Interaction Effect:
+
+::: {#is-there-an-interaction-between-engine_size-and-fuel-type .section .level4}
+#### \***Is there an interaction between engine_size and fuel type?**
+
+``` {r}
+int_engine_fuel_model <- lm(CO2_emission ~ engine_size*fuel_type, data = df)
+summary(int_engine_fuel_model)
+```
+
+There is no interaction effect between any of the fuel types and the
+engine_size!!! We can only conclude the following (based of p value): \*
+CO2 is up 36.7g/km when engine_size is bigger in 1 unit \* y default, fuel
+will increase CO2 160g/km \* regular gas X only +130g/km
+
+i.e. so any increase in engine_size will affect the CO2 emitted strictly
+y its coefficient (same for the use of a particular fuel type) - do not
+depend/interact with each other
+
+
+### **Is there an interaction between fuel type and fuel consumption in a combination of city and highway roads?**
+
+``` {r}
+int_mix_fuel_model <- lm(CO2_emission ~ mix_consumption*fuel_type, data = df)
+summary(int_mix_fuel_model)
+```
+
+Overall, this model suggests that the interaction between mix 
+consumption and fuel type significantly influences CO2 emissions, 
+and the model has a very high level of explanatory power.
+
+**Interpretation:**
+
+-   The R-squared value (0.9992) is very high, indicating that a large proportion of the         variance in CO2 emissions is explained
+    by the predictors, including the interaction term.   
+    
+-   The F-statistic has an extremely low p-value, this means that the model 
+    is highly significant, indicating that at least one 
+    of the predictors, including the interaction terms, 
+    is influential in explaining CO2 emissions.  
+    
+-   It is true that not all the coefficients are significant (have a low p-value), but the       significance codes suggest that most coefficients, especially all the **interaction          terms** , are highly significant.
+
+
+*This interpretation suggests that the interaction between mix consumption and fuel type is very significant.*
+
+### **What happens if we perform a multiple regression model and include both interactions terms**
 ```{r}
+multi_model <- lm(CO2_emission ~ engine_size*fuel_type + mix_consumption*fuel_type, data = df)
 
-lda_cv <- train(covid ~RPS2+IFI27+EEF2+`MT-CO2`+`MT-CO3`+IGHG1, data = gene_exp, method = "lda", trControl = train_control, metric="Accuracy")
-lda_cv
-
-```
-*We performed now LDA. Let's GO and analyze the results!!*
-
-*INTERPRETATION*
-417 samples: The dataset consists of 417 observations.
-6 predictors: There are 6 predictor variables used in the logistic regression model.
-2 classes: 'No', 'Yes': The classification task involves predicting between two classes, labeled 'No' and 'Yes'
-The average accuracy of the LDA model across the 5 folds of cross-validation is 79.13%. It represents the proportion of correctly classified instances out of the total. This is more or less a good accuracy but we should compare it with other models.
-
-So, now if we want to compare Logistic Regression and LDA using 5-fold CV we can easily notice that LDA performed better than logistic regression(LDA_accuracy = 79.13%> Logistic_Regression_accuracy = 77.92%)
-
-*Now let's go and check QDA*
-
-##### QDA
-```{r qda_cv}
-
-qda_cv <- train(covid ~RPS2+IFI27+EEF2+`MT-CO2`+`MT-CO3`+IGHG1, data = gene_exp, method = "lda", trControl = train_control, metric="Accuracy")
-qda_cv
-
-```
-*INTERPRETATION*
-417 samples: The dataset consists of 417 observations.
-6 predictors: There are 6 predictor variables used in the logistic regression model.
-2 classes: 'No', 'Yes': The classification task involves predicting between two classes, labeled 'No' and 'Yes'
-The average accuracy of the QDA model across the 5-fold of cross-validation is 78.42%. It represents the proportion of correctly classified instances out of the total. This is more or less a good accuracy but we should compare it with other models.
-
-So, now if we want to compare QDA and LDA using 5-fold CV we can easily notice that LDA performed better than logistic regression(LDA_accuracy = 79.13%> QDA_accuracy = 78.42%)
-
-And if we want to compare Logistic regression and QDA using 5-fold CV we can easily notice that
-(QDA_accuracy = 78.42% > Logistic_Regression_accuracy = 77.92%) 
-
-*Small Conclusion: LDA performs better than Logistic Regression and QDA using 5-fold CV*
-
-*NoW, let's perform everything we did so far but using another resampling technique (LOOCV). P.S. We are still under the forward selection approach*
-
-#### LOOCV:
-
-```{r loocv}
-
-loocv <- trainControl(method = "LOOCV")
-
+# View the summary of the model
+summary(multi_model)
 ```
 
-*Now, we performed the LOOCV and we want to perform the following models: Logistic Regression, LDA and QDA. So, LET'S GO!!*
+Overall, whenever we combine the interaction terms, this can lead to a high statistical significance.
 
-##### logistic regression:
+**Interpretation:**
 
-```{r log_reg_loocv}
+-   The R-squared value is 0.9992, indicating that approximately 99.92% of the variance in CO2 emissions is explained by the predictors and their interactions in the       model.
 
-logistic_model <- train( covid ~ RPS2+IFI27+EEF2+`MT-CO2` + `MT-CO3` + IGHG1, data=gene_exp, method="glm", family=binomial(link=logit), metric="Accuracy" , trControl=loocv)
+-   The F-statistic has an extremely low p-value (< 2.2e-16), which indicates that the model     is highly significant, thus indicating that at least one of the predictors or                interactions is influential in explaining CO2 emissions.
 
-logistic_model
+-   It is true that not all the coefficients are significant (have a low p-value), but           the significance codes suggest that most coefficients, especially all the **interaction      terms** , are highly significant. 
 
-```
-*INTERPRETATION*
+-   The residual standard error (RSE) is 1.798, which represents generally a low RSE. This RSE indicates a very good and significant fit.
 
-417 samples: The dataset consists of 417 observations.
-6 predictors: There are 6 predictor variables used in the logistic regression model.
-2 classes: 'No', 'Yes': The classification task involves predicting between two classes, labeled 'No' and 'Yes'
-The average accuracy of the logistic regression model across the LOOCV is 78.41%. It represents the proportion of correctly classified instances out of the total. This is more or less a good accuracy but we should compare it with other models.
+### Residual Plot to Determine Patterns
+```{r}
+# Compute the residuals
+residuals <- resid(slr_engine_model)
 
-#### LDA
+# Create a scatterplot of residuals against the fitted values
+plot(fitted(slr_engine_model), residuals,
+     xlab = "Fitted Values",
+     ylab = "Residuals",
+     main = "Residual Plot",
+     pch = 19) 
 
-```{r lda_loocv}
-
-lda_model  <- train( covid ~ RPS2+IFI27+EEF2+`MT-CO2` + `MT-CO3` + IGHG1, data=gene_exp, method="lda", metric="Accuracy" , trControl=loocv)
-
-lda_model
-
-```
-*INTERPRETATION*
-
-417 samples: The dataset consists of 417 observations.
-6 predictors: There are 6 predictor variables used in the logistic regression model.
-2 classes: 'No', 'Yes': The classification task involves predicting between two classes, labeled 'No' and 'Yes'
-The average accuracy of the LDA model across the LOOCV is 78.65%. It represents the proportion of correctly classified instances out of the total. This is more or less a good accuracy but we should compare it with other models.
-
-So, now if we want to compare Logistic Regression and LDA using LOOCV we can easily notice that LDA performed better roughly than logistic regression(LDA_accuracy = 78.65%> Logistic_Regression_accuracy = 78.41% ), so that it is roughly equal.
-
-*Till now, we can see that LDA is roughly better than Logistic Regression*
-
-*Now, we should see QDA and compare the three models*
-
-##### QDA
-
-```{r qda_loocv}
-
-qda_model  <- train( covid ~ RPS2+IFI27+EEF2+`MT-CO2` + `MT-CO3` + IGHG1, data=gene_exp, method="qda", metric="Accuracy" , trControl=loocv)
-
-qda_model
-#plot_roc_curves(lda_model, qda_model, test_set)
-
-```
-*INTERPRETATION*
-
-417 samples: The dataset consists of 417 observations.
-6 predictors: There are 6 predictor variables used in the logistic regression model.
-2 classes: 'No', 'Yes': The classification task involves predicting between two classes, labeled 'No' and 'Yes'
-The average accuracy of the QDA model across the LOOCV is 74.82%. It represents the proportion of correctly classified instances out of the total. This is more or less a good accuracy but we should compare it with other models.
-
-So, now if we want to compare QDA and LDA using LOOCV, we can easily notice that LDA performed better than QDA(LDA_accuracy = 78.65%> QDA_accuracy = 74.82% ).
-
-*Till now, we can see that LDA is roughly better than Logistic Regression and we can now see that LDA is better than QDA.*
-
-*Conclusion: Using LOOCV, we can notice that LDA is better than QDA and logistic regression.*
-
-*NoW,we finished from the forward selection section, hence we are going to see some models using other feauture selection like backward selection ~ Excited, right?*
-
-
-### Backward Selection
-
-Starting by selecting the # of features from the BIC curve:
-
-```{r back_sub}
-
-backward_sel <- regsubsets(covid ~ ., data= gene_exp, nvmax = ncol(gene_exp) - 1, method="backward")
-
-bic_summary <- summary(backward_sel)$bic
-min_bic_index <- which.min(bic_summary)
-min_bic_value <- bic_summary[min_bic_index]
-plot(bic_summary, type='l', main='BIC')
-points(min_bic_index, min_bic_value, col='red', pch=19)
-
+# Add a Lowess curve to the plot
+lines(lowess(fitted(slr_engine_model), residuals), col = "blue")
 ```
 
-We have 15 important predictors
+*Notice from the residual plot that we can see a pattern. The presence of a pattern in the plots indicate a problem with some aspect of the linear model. There is a little pattern in the residuals, suggesting that applying polynomial regression can improve the fit to the data*
 
-```{r imp_genes_back}
+### Polynomial Regression
 
-p <- min_bic_index
-coef(backward_sel, p)
-
-```
-We will generate the logistic regression model using different resampling techniques and will analyze:  
-
-- val set approach
-
-- KFold Cv (5-fold)
-
-- LOOCV
-
-
-#### val set approach
-
-```{r backward_resampling_val}
-
-#the data split is still available as train_set and test_set
-logistic_model <- glm(covid ~ CD74+MYH9+COTL1+FKBP8+ OAS3 +  LCP1 +TLN1 + RPS11 + RPL13A + EEF1A1 + EEF2 + IFIT1 + `MT-ND4` + `MT-CO3` + UBA52, data = train_set, family = "binomial")
-summary(logistic_model)
-
-pred <- predict(logistic_model, newdata = test_set)
-threshold <- 0.5  #probability
-predicted_labels <- ifelse(pred > threshold, 1, 0)
-confusion_matrix <- table(predicted_labels, test_set$covid)
-measures(confusion_matrix)
-
-
-```
-
-
-##### K fold CV
-
-```{r log_reg_cv_back}
-
-cv <- trainControl(method = "cv", n=5)
-
-logistic_model <- train( covid ~ CD74 +MYH9+COTL1+FKBP8+ OAS3 +  LCP1 +TLN1 + RPS11 + RPL13A + EEF1A1 + EEF2 + IFIT1 + `MT-ND4` + `MT-CO3` + UBA52, data=gene_exp, method="glm", family=binomial(link=logit), metric="Accuracy" , trControl=cv)
-
-logistic_model
-
-```
-
-##### LOOCV
-
-```{r log_reg_loocv_back}
-
-logistic_model <- train( covid ~ CD74+MYH9+COTL1+FKBP8+ OAS3 +  LCP1 +TLN1 + RPS11 + RPL13A + EEF1A1 + EEF2 + IFIT1 + `MT-ND4` + `MT-CO3` + UBA52, data=gene_exp, method="glm", family=binomial(link=logit), metric="Accuracy" , trControl=loocv)
-
-logistic_model
-
-```
-
-By comparing accuracies, we can see that The validation set approach has the lowest test accuracy of 0.797 followed by loocv's  0.822, and then 5-fold cv's 0.832. This result is not unusual, validation set splits the data randomly each time and have high bias, low variance. LOOCV trains the data on n-1 allowing it to see almost all the data, low bias which also has high variance. 5 fold cross validation is a trade off between variance and bias which is why its more favourable.
-
-### Best Subset Selection
+**note: a polynomial model is still a linear regression model since the coef are linear.**
 
 ```{r}
-#best_selection <- regsubsets(covid ~ ., data= gene_exp, nvmax = ncol(gene_exp) - 1)
+pol_engine_model <- lm(CO2_emission ~ poly(engine_size, 3), data=df)
+summary(pol_engine_model)
+#plot(df$engine_size, df$CO2_emission, xlab = "engine_size", ylab= "CO2 levels", col= "#B9BDC1", pch=20)
 ```
 
-Error message: `Error in leaps.exhaustive(a, really.big) :` 
-`Exhaustive search will be S L O W`
-
-The error message suggests that an exhaustive search might be slow, thus we are not able to apply best subset selection.
-
-## Contributors:
-
-- Roudy Bou Francis
-- Rayane Adam
-
-## Acknowledgements:
-
-Many many tutorials, mostly worth of noting:
-
-- [gene expression analysis in R](https://youtube.com/playlist?list=PLJefJsd1yfhbIhblS-85alaFsPdU00DaA&si=Zz4uZtMaKmztwe0-)    
-<!-- - [RNA-seq PCA](https://tavareshugo.github.io/data-carpentry-rnaseq/03_rnaseq_pca.html)  --> 
-- [RNA-seq normalization](https://hbctraining.github.io/DGE_workshop/lessons/02_DGE_count_normalization.html)
-
-## References
-
-- [1] Hurst, J. H., Mohan, A., Dalapati, T., George, I. A., Aquino, J. N., Lugo, D. J., ... & Kelly, M. S. (2023). Differential host responses within the upper respiratory tract and peripheral blood of children and adults with SARS-CoV-2 infection. medRxiv, 2023-07.
-
-- [2] Robinson, M. D., & Oshlack, A. (2010). A scaling normalization method for differential expression analysis of RNA-seq data. Genome biology, 11(3), 1-9.
-
-<!-- - [3] Lenz, M., Müller, F. J., Zenke, M., & Schuppert, A. (2016). Principal components analysis and the reported low intrinsic dimensionality of gene expression microarray data. Scientific reports, 6(1), 25696. -->
+* R squared is 0.6648, i.e. the model explain 66.48% of the variation in the dependent variable
+* F is high enough (548) to conclude that independent variables are jointly etter off in predicting the dependent variable than what's done individually.
+* $H_0$ is rejected (p<0.05), the poly model is superior to the simple one degree model.   
 
 
-<img src="assets/geo.png" width=200>
+What does that mean?
+
+- The coefficient for poly(engine_size, 3)1 is positive and highly significant, indicating that CO2 emissions increase as engine size increases. The coefficients for poly(engine_size, 3)2 is negative and significant, indicating that the rate of increase in CO2 emissions slows down as engine size increases. The poly(engine_size, 3)3 is + again.
+- Engine size affects how much CO2 a car emits. The bigger the engine, the more CO2 the car emits. But the rate at which CO2 emissions increase slows down as engine size increases.
+), the only outliers that are present in our dataset are the ones with CO2 emi
+## Conclusion of the Outliers
+
+*As it was mentioned [before](#data-exploration-outliers) outliers that are present in our dataset are the ones with CO2 emissions = 608, and this was the value that we were constantly mentioning with the visualization of each plot (our famous P.S.). Hence,let's recall a major concept in statistics: Outliers are data points that significantly differ from the majority of the data in a dataset. While outliers are typically considered as unusual or extreme values, they can sometimes have legitimate reasons for their presence. And this is the case of our outliers; they have large CO2 emissions for legitimate reasons. This reason is: Heterogeneity. In certain datasets, heterogeneity or diversity among data points can lead to outliers. For example, in a dataset of income, a few individuals with exceptionally high incomes may be outliers, but they are valid data points.If we go back to our outliers in our dataset, we can see that it is a result of heterogeneity, because if we inspect about our outliers, we discover that they are bugati cars with engine size = 8, they use premium gasoline and they are 2 seated(special). Hence, we notice that the bugati outlier is to the heterogeneity or diversity among data points.*
+
+<p align="center">
+  <h2>BIF524: Data Mining</h2>   
+  <h3>Course Project Phase I: Regression</h3>   
+  <h4>LAU: Fall 2023</h4>
+</p>
+
+## Acknowledgments
+**Unfortunately, Roudy's laptop fell and the screen was broken and the same happened to Rayane's screen.**
+**Hence two people must be thanked.**
+
+**Thanks to Rayane's sister for letting Rayane use her laptop.**
+
+**Thanks to Roudy's brother for letting Roudy use his laptop.**
+
+<p align ="center" text='bold'><b>Contains information licensed under the Open Government Licence – Canada</b></p>
+
+<div align="center">
+  <a href="https://open.canada.ca">
+    <img src="https://open.canada.ca/GCWeb/assets/wmms-blk.svg" alt="Logo" width="100">
+  </a>
+</div>
