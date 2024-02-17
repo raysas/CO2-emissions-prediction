@@ -45,35 +45,23 @@ library(tidyverse) #ggplot and dyplr are loaded with tidyverse
 
 ***This code will perform the following steps:***
 
-1.  *Data preprocessing*: The code will
+1.  [*Data preprocessing*](#data-processing): The code will
+    -   remove rows with missing values
+    -   convert numbers char variables to numerical factors
+    -   rename the variables in a meaningful way
+    -   get rid of the useless columns
+    -   create new ones useful for our model
+2.  [*Data visualization and exploration:*](#data-visualization) The code will
+    -   create box plots to visualize the distribution of CO2 Emissions across different vehicle sizes, transmission, fuel types
+    -   create scatter plots to visualize the relationship between CO2 Emissions and quantitative variables (with qualitative variables group labeling to spot patterns)
+    -   create a correlation matrix to visualize the relationships between some of the variables in the dataset
+3.  [*Hypothesis exploration*](#hypotheses): The code will highlight the following hypotheses that were either logically assumed or intuitively withdrawn from the previous data exploration and visualization
+4.  [*Linear regression*](#regression-models): The code will build linear regression model to test the hypotheses including
+    -   simple linear regression
+    -   multiple linear regression
+    -   interaction effect
+    -   polynomial regression
 
--   remove rows with missing values
--   convert numbers char variables to numerical factors
--   rename the variables in a meanigful way
--   get rid of the useless columns
--   create new ones useful for our model
-
-2.  *Data visualization and exploration:* The code will
-
--   create box plots to visualize the distribution of CO2 Emissions
-    across different vehicle sizes, transmission, fuel types
--   create scatter plots to visualize the relationship between CO2
-    Emissions and quantitative variables (with qualitative variables
-    group labeling to spo patterns)
--   create a correlation matrix to visualize the relationships between
-    some of the variables in the dataset
-
-3.  Hypothesis exploration: The code will highlight the following
-    hypotheses that were either logically assumed or intuitively
-    withdrawn from the previous data exploration and visualization
-
-4.  Linear regression: The code will build linear regression model to
-    test the hypotheses including
-
--   simple linear regression
--   multiple linear regression
--   interaction effect
--   polynomial regression
 
 ## Data
 
