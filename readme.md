@@ -3,6 +3,11 @@
 This is a mutliphase projet for the Data Mining course at LAU in Fall 2023. The project is divided into 3 phases.
 This is phase 1 of the project, The data is taken from Open Canada, natural resources. It includes vehicle information and CO2 emission levels for 2023. The data is available in the data folder.
 
+## Contributors:
+
+- Roudy Bou Francis, [roudy.boufrancis@lau.edu](mailto:roudy.boufrancis@lau.edu)
+- Rayane Adam, [mailto:rayane.adam@lau.edu](rayane.adam@lau.edu)
+
 ## Phase 1: Regression
 
 In this phase we used preprocessing steps to clean the data, and then used 3 different regression algorithms to predict the CO2 emission levels. The algorithms used are:
