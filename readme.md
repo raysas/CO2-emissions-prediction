@@ -1,11 +1,6 @@
 # Data Mining Project
 
-This is a mutliphase projet for the Data Mining course at LAU in Fall 2023. The project is divided into 3 phases:
-
-- Phase 1: Regression
-- Phase 2: Classification
-- Phase 3: Clustering
-
+This is a mutliphase projet for the Data Mining course at LAU in Fall 2023. The project is divided into 3 phases.
 This is phase 1 of the project, The data is taken from Open Canada, natural resources. It includes vehicle information and CO2 emission levels for 2023. The data is available in the data folder.
 
 ## Phase 1: Regression
@@ -18,31 +13,14 @@ In this phase we used preprocessing steps to clean the data, and then used 3 dif
 
 We applied data exploration and visualization to understand the data and the relationship between the features and the target variable. We also applied feature selection to reduce the number of features and improve the performance of the models (used backward selection in one of the MLR models). We created new columns and grouped some observations together to come up witj generalized and more useful conclusions. 
 
-----------------------------------------------------------------
 
-# <p align="center">THE PROJECT </p>
-----------------------------------------------------------------
-
----
-title: 'Data Mining: Phase I'
-author: "Rayane Adam, Roudy Bou Francis"
-date: "2023-10-20"
-output:
-  pdf_document: default
-  html_document:
-    df_print: paged
-  word_document: default
-viewport: "width=device-width, initial-scale=1"
-generator: pandoc
----
-
-
-::: {#loading-the-packages .section .level2}
 *For this phase, the following sub-packages of tidyverse are required:*
 
+
 <p align="center">
-![dplyr](assets/dplyr.png){width=100} ![ggplot2](assets/ggplot2.png){width=100}
+  <img src="assets/dplyr.png" alt="dplyr" width="100"> <img src="assets/ggplot2.png" alt="ggplot2" width="100">
 </p>
+
 
 
 ```r
@@ -111,45 +89,23 @@ Accordingly this dataset revolves around **Fuel Consumption** data
 collected in 2023 for over `833 instances`. Each instance have the
 following attributes:
 
-  ----------------------------------------------------------------------
-  Col Number        Name                 Description
-  ----------------- -------------------- -------------------------------
-  1                 Model                The car model's year
+| Col Number | Name              | Description                                              |
+|------------|-------------------|----------------------------------------------------------|
+| 1          | Model             | The car model's year                                     |
+| 2          | Make              | Car type - company                                       |
+| 3          | Model             | The model's name                                         |
+| 4          | Vehicle Class     | Class of the vehicle                                     |
+| 5          | engine_size       | in Litres                                                |
+| 6          | Transmission      | Like automatic or manual...                              |
+| 7          | Fuel Type         | The type of fuel the car uses                            |
+| 8          | Fuel Consumption - City (L/100 km) | Fuel consumption rate in liters per 100 kilometers when driven in city conditions.|
+| 9          | Fuel Consumption - Hwy (L/100 km)  | The fuel consumption rate in liters per 100 kilometers when driven on highways. |
+| 10         | comb (L/100 km)   | Combined Fuel Consumption mixed between city and highway (L/100 km) |
+| 11         | Comb (MPG)        | Combined Fuel Consumption in a different unit (MPG)     |
+| 12         | CO2 Emissions     | The amount of CO2 emissions produced by the car         |
+| 13         | CO2               | rating: 1-10 from worst to best                         |
+| 14         | Smog              | rating: 1-10 from worst to best                         |
 
-  2                 Make                 Car type - company
-
-  3                 Model                The model's name
-
-  4                 Vehicle Class        Class of the vehicle
-
-  5                 engine_size          in Litres
-
-  6                 Transmission         Like automatic or manual...
-
-  7                 Fuel Type            The type of fuel the car uses
-
-  8                 Fuel Consumption -   Fuel consumption rate in liters
-                    City (L/100 km)      per 100 kilometers when driven
-                                         in city conditions.
-
-  9                 Fuel Consumption -   The fuel consumption rate in
-                    Hwy (L/100 km)       liters per 100 kilometers when
-                                         driven on highways.
-
-  10                comb (L/100 km)      Combined Fuel Consumption mixed
-                                         between city and highway (L/100
-                                         km)
-
-  11                Comb (MPG)           Combined Fuel Consumption in a
-                                         different unit (MPG)
-
-  12                CO2 Emissions        The amount of CO2 emissions
-                                         produced by the car
-
-  13                CO2                  rating: 1-10 from worst to best
-
-  14                Smog                 rating: 1-10 from worst to best
-  ----------------------------------------------------------------------
 
 *Again, to access the [csv file just click
 here](https://natural-resources.canada.ca/sites/nrcan/files/oee/files/csv/MY2023%20Fuel%20Consumption%20Ratings.csv).*
@@ -161,12 +117,10 @@ rows:
   df <- read.csv("data/MY2023 Fuel Consumption Ratings.csv", header = TRUE)
   #head(df, n = 3) #viewing the first 3 rows
 ```
-:::
 
-::: {#data-preprocessing .section .level2}
 ## Data Preprocessing
 
-::: {#data-cleaning-removing-na-values .section .level3}
+
 ### Data cleaning: removing NA values
 
 This is dedicated to removing empty rows and columns from the dataset.\
@@ -240,8 +194,8 @@ head(df, n=2)
 ## 2      6      7
 ```
 
-::: {pagedtable="false"}
-:::
+
+
 
 
 ```r
@@ -293,9 +247,9 @@ if (has_duplicates) {
 ## [1] "The dataset does not contain two rows with the same information. The dataset has no duplicate rows"
 ```
 
-:::
 
-::: {#data-cleaning-columns-naming-conventions .section .level3}
+
+
 ### Data cleaning: columns naming conventions
 
 Notice how the header of the data has unconventional names:
@@ -330,9 +284,9 @@ colnames(df)
 ## [13] "CO2_rate"          "smog_rate"
 ```
 
-:::
 
-::: {#data-cleaning-data-type-conversion .section .level3}
+
+
 ### Data cleaning: data type conversion
 
 Make sure the numbers are converted to the right data type:
@@ -580,7 +534,7 @@ for patterns and relationships. This can be done via plotting (mainly
 scatterplots for nums, boxplots for categorical and correlation
 matrices)
 
-::: {#vehicle-class-co2 .section .level3}
+
 ### **Vehicle class & CO2**
 
 
@@ -600,9 +554,9 @@ special have relatively higher CO2 Emissions than other types of cars.*
 
 **P.S. Notice that a special car has a suspicious level of CO2 emissions
 greater than 600 \~maybe outlier or \~maybe not. (Later On)**
-:::
 
-::: {#transmission-and-co2-levels .section .level3}
+
+
 ### **Transmission and CO2 levels:**
 
 
@@ -619,9 +573,9 @@ the CO2 emitted by the car.*
 
 **P.S. Notice that an automatic car has a suspicious level of CO2
 emissions greater than 600 \~maybe outlier or \~maybe not. (Later On)**
-:::
 
-::: {#density-curve-of-co2-emission-based-on-the-general-transmission-type .section .level3}
+
+
 ### **Density Curve of CO2 Emission Based on the General Transmission Type**
 
 
@@ -651,9 +605,9 @@ of CO2 emitted.*
 
 **P.S. Notice that a AM7 car has a suspicious level of CO2 emissions
 greater than 600 \~maybe outlier or \~maybe not. (Later On)**
-:::
 
-::: {#fuel-type-co2 .section .level3}
+
+
 ### **Fuel type & CO2**
 
 
@@ -678,9 +632,9 @@ p.s. (source:
 **P.S. Notice that a car that uses premium gasoline has a suspicious
 level of CO2 emissions greater than 600 \~maybe outlier or \~maybe not.
 (Later On)**
-:::
 
-::: {#density-curve-of-co2-emission-based-on-the-fuel-type .section .level3}
+
+
 ### **Density Curve of CO2 Emission Based on the Fuel Type**
 
 
@@ -691,9 +645,9 @@ ggplot(data =df) + geom_density(mapping = aes(x = CO2_emission, fill =fuel_type,
 ![](CO2-emissions-regression_files/figure-latex/unnamed-chunk-28-1.pdf)<!-- --> 
 
 **Check the interpretation [here](#fuel-consumption-fuel-type-and-co2)**
-:::
 
-::: {#engine-size-and-co2-emissions .section .level3}
+
+
 ### **Engine Size and CO2 Emissions**
 
 
@@ -712,9 +666,9 @@ ggplot(data=df) +
 *This pattern is perceived if the visualizations were just made on these
 2 variables. Fortunately, we can visualize the pattern using additional
 variables.*
-:::
 
-::: {#engine-size-and-fuel-types .section .level3}
+
+
 ### **Engine Size and Fuel Types**
 
 
@@ -736,9 +690,9 @@ ggplot(data=df) +
 **P.S. Notice that a car with engine size = 8 (largest) and that uses
 premiuim gasoline has a suspicious level of CO2 emissions greater than
 600 \~maybe outlier or \~maybe not. (Later On)**
-:::
 
-::: {#engine-size-and-transmission-types .section .level3}
+
+
 ### **Engine size and Transmission types**
 
 
@@ -757,7 +711,7 @@ emission of CO2*
 
 **By now, you can see the suspicious value wihtout our p.s.**
 
-::: {#engine-size-and-vehicle-size .section .level4}
+
 #### **Engine Size and Vehicle Size**
 
 
@@ -773,10 +727,10 @@ emission of CO2. The pattern is interesting to study.*
 
 **"Well, isn't it just remarkable how you've uncovered the 'suspicious'
 value all on your own, right?**
-:::
-:::
 
-::: {#fuel-consumption-fuel-type-and-co2 .section .level3}
+
+
+
 ### **Fuel consumption, fuel type and CO2**
 
 This general pattern persists when looking at the fuel consumption in a
@@ -799,9 +753,9 @@ in lower emissions*
 *As per the density curve shown [here](#density-curve-of-co2-emission-based-on-the-fuel-type)
 if we compare the distribution of the D fuel type with the density curve, we can notice that the diesel has relatively a predictable and low CO2 emissions. In other words, we can notice on the density curve, that the red curve represents that the diesel fuel type has relatively a small standard deviation (and this is shown in the correlation matrix).
 In addition, we can notice that the premium fuel type is the one that has the largest emissions of CO2 (shown in the density curve and in the correlation matrix)*
-:::
 
-::: {#correlation-matrix .section .level3}
+
+
 ### **Correlation matrix**
 
 
@@ -885,15 +839,15 @@ In [this correlation matrix](#correlation-matrix), `engine_size` seem
 like the only feature not to have a strongly positive correlation with
 the CO2 emissions, it seems like a case worth studying on a higher
 degree polynomial!!
-:::
 
-::: {#regression-models .section .level2}
+
+
 ## Regression Models:
 
-::: {#linear-regression .section .level3}
+
 ### Linear Regression:
 
-::: {#is-there-a-significant-relationship-between-engine_size-and-co2-emission .section .level4}
+
 #### **Is there a significant relationship between engine_size and CO2 emission?**
 
 
@@ -943,9 +897,9 @@ abline(slr_engine_model, col="#de425b", lwd=3, lty=1)
     in CO2 emissions, as indicated by the high R-squared value `0.636`.\
 -   The residuals are relatively small (`38.8`) and the coefficients
     have a low standard error, which is a sign of a good fit.
-:::
 
-::: {#is-there-a-significant-relationship-between-the-vehicle-type-and-co2-emission .section .level4}
+
+
 #### **Is there a significant relationship between the vehicle type and CO2 emission?**
 
 
@@ -1013,10 +967,10 @@ summary(slr_vehicle_model)
 -   The residual standard error (RSE) is 53.91, which does represent generally a low RSE.        This RSE along with R squared indicates that the model is poor.
 **The interpretation of the metrics indicate that the model of simple linear regression of the CO2 emissions onto the vehice class is a poor fit.**
 
-:::
-:::
 
-::: {#multiple-regression-backward-selection .section .level3}
+
+
+
 ### Multiple Regression: Backward Selection
 
 
@@ -1158,12 +1112,12 @@ The main predictors that persisted the elimination:
 -   The residual standard error (RSE) is 2.045, which represents generally a low RSE. This       RSE indicates a very good and significant fit.
 To sum up, the model generated by backward selection is a very good and significant model.
 
-:::
 
-::: {#interaction-effect .section .level3}
+
+
 ### Interaction Effect:
 
-::: {#is-there-an-interaction-between-engine_size-and-fuel-type .section .level4}
+
 #### \***Is there an interaction between engine_size and fuel type?**
 
 
@@ -1388,23 +1342,20 @@ What does that mean?
 
 *As it was mentioned [before](#data-exploration-outliers) outliers that are present in our dataset are the ones with CO2 emissions = 608, and this was the value that we were constantly mentioning with the visualization of each plot (our famous P.S.). Hence,let's recall a major concept in statistics: Outliers are data points that significantly differ from the majority of the data in a dataset. While outliers are typically considered as unusual or extreme values, they can sometimes have legitimate reasons for their presence. And this is the case of our outliers; they have large CO2 emissions for legitimate reasons. This reason is: Heterogeneity. In certain datasets, heterogeneity or diversity among data points can lead to outliers. For example, in a dataset of income, a few individuals with exceptionally high incomes may be outliers, but they are valid data points.If we go back to our outliers in our dataset, we can see that it is a result of heterogeneity, because if we inspect about our outliers, we discover that they are bugati cars with engine size = 8, they use premium gasoline and they are 2 seated(special). Hence, we notice that the bugati outlier is to the heterogeneity or diversity among data points.*
 
-<p align="center">
-  <h2>BIF524: Data Mining</h2>   
-  <h3>Course Project Phase I: Regression</h3>   
-  <h4>LAU: Fall 2023</h4>
-</p>
+_check the plots within the report_
 
 ## Acknowledgments
 **Unfortunately, Roudy's laptop fell and the screen was broken and the same happened to Rayane's screen.**
 **Hence two people must be thanked.**
 
-**Thanks to Rayane's sister for letting Rayane use her laptop.**
-
+**Thanks to Rayane's sister for letting Rayane use her laptop.**  
 **Thanks to Roudy's brother for letting Roudy use his laptop.**
 
-<p align ="center" text='bold'><b>Contains information licensed under the Open Government Licence – Canada</b></p>
 
-<div align="center">
+
+<p text='bold'><b>Contains information licensed under the Open Government Licence – Canada</b></p>
+
+<div>
   <a href="https://open.canada.ca">
     <img src="https://open.canada.ca/GCWeb/assets/wmms-blk.svg" alt="Logo" width="100">
   </a>
